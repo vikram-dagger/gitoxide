@@ -35,7 +35,7 @@ gix-object = { version = "^0.65.0", path = "../gix-object" }
 
 [dev-dependencies]
 insta = "1.46.3"
-criterion = "0.8.2"
+criterion = { version = "5.0.2", package = "codspeed-criterion-compat" }
 gix-note = { path = ".", features = ["sha1", "sha256"] }
 gix-odb = { path = "../gix-odb" }
 gix-testtools = { path = "../tests/tools" }

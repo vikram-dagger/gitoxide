@@ -42,7 +42,7 @@ document-features = { version = "0.2.1", optional = true }
 
 [dev-dependencies]
 insta = "1.46.3"
-criterion = "0.8.2"
+criterion = { version = "5.0.2", package = "codspeed-criterion-compat" }
 gix-testtools = { path = "../tests/tools", default-features = false, features = ["sha1"] }
 gix-fs = { path = "../gix-fs" }
 

@@ -9,7 +9,7 @@
 //! and we use in-memory speeds for this.
 use std::{io, sync::atomic::AtomicBool};
 
-use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group};
+use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use gix_features::{parallel::InOrderIter, progress};
 use gix_object::Write as _;
 use gix_pack::{
@@ -19,7 +19,12 @@ use gix_pack::{
 
 /// Object counts to exercise. Kept modest so the benchmark stays runnable while still showing how
 /// the phases scale; raise locally to probe larger, more degenerate repositories.
+#[cfg(not(codspeed))]
 const OBJECT_COUNTS: &[usize] = &[1_000, 10_000, 50_000];
+/// Under CodSpeed's CPU simulation each iteration is instrumented, so keep the inputs small enough
+/// for the CI run to stay fast while still showing how the phases scale.
+#[cfg(codspeed)]
+const OBJECT_COUNTS: &[usize] = &[100, 1_000];
 
 /// Create a fresh in-memory object database populated with `count` unique blobs.
 fn memory_odb(count: usize) -> (Memory, Vec<gix_hash::ObjectId>) {
@@ -77,6 +82,8 @@ fn write_pack(odb: &Memory, counts: Vec<output::Count>) -> u64 {
         Box::new(progress::Discard),
         entry::iter_from_counts::Options {
             mode: entry::iter_from_counts::Mode::PackCopyAndBaseObjects,
+            // CodSpeed's CPU simulation measures a single thread deterministically, so avoid thread scheduling noise.
+            thread_limit: if cfg!(codspeed) { Some(1) } else { None },
             ..Default::default()
         },
     ));
@@ -125,8 +132,4 @@ fn bench_write(c: &mut Criterion) {
 }
 
 criterion_group!(benches, bench_count, bench_write);
-
-fn main() {
-    benches();
-    Criterion::default().configure_from_args().final_summary();
-}
+criterion_main!(benches);

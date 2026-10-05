@@ -322,6 +322,8 @@ bin-dir = "gitoxide-max-pure-v{ version }-{ target }/{ bin }{ binary-ext }"
 [workspace.lints.rust]
 # TODO: enable this
 # unused_qualifications = "warn"
+# `cfg(codspeed)` is set by `cargo codspeed build` when compiling benchmarks for CodSpeed.
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(codspeed)"] }
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
