@@ -1,0 +1,61 @@
+name: CodSpeed
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  # `workflow_dispatch` allows CodSpeed to trigger backtest
+  # performance analysis in order to generate initial data.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CLICOLOR: "1"
+
+jobs:
+  benchmarks:
+    name: Run benchmarks
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write # For OpenID Connect authentication with CodSpeed.
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prerequisites
+        run: |
+          rustup update stable
+          rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Install cargo-codspeed
+        run: cargo install cargo-codspeed --locked --version 5.0.2
+      - name: Build the benchmarks
+        run: |
+          cargo codspeed build -m simulation \
+            -p gix-attributes \
+            -p gix-config \
+            -p gix-diff \
+            -p gix-glob \
+            -p gix-index \
+            -p gix-merge \
+            -p gix-note \
+            -p gix-object \
+            -p gix-pack \
+            -p gix-utils
+      - name: Run the benchmarks
+        uses: CodSpeedHQ/action@c4fd08a3a159bd0cc208da1e0edf32b8c47d75e5 # v5.4.0
+        with:
+          mode: simulation
+          run: cargo codspeed run --workspace

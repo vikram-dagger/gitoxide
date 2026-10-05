@@ -36,4 +36,4 @@ getrandom = "0.4"
 
 [dev-dependencies]
 gix-utils = { path = ".", features = ["bstr" ]}
-criterion = "0.8.2"
+criterion = { version = "5.0.2", package = "codspeed-criterion-compat" }
