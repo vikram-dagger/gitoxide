@@ -70,7 +70,7 @@ pub mod from_tree {
                 entries,
                 path_backing,
                 path: _,
-                path_deque: _,
+                path_lengths: _,
                 validate: _,
                 invalid_path: _,
             } = delegate;
@@ -97,7 +97,7 @@ pub mod from_tree {
         entries: Vec<Entry>,
         path_backing: PathStorage,
         path: BString,
-        path_deque: VecDeque<BString>,
+        path_lengths: VecDeque<usize>,
         validate: gix_validate::path::component::Options,
         invalid_path: Option<(BString, gix_validate::path::component::Error)>,
     }
@@ -108,7 +108,7 @@ pub mod from_tree {
                 entries: Vec::new(),
                 path_backing: Vec::new(),
                 path: BString::default(),
-                path_deque: VecDeque::new(),
+                path_lengths: VecDeque::new(),
                 validate,
                 invalid_path: None,
             }
@@ -175,19 +175,21 @@ pub mod from_tree {
 
     impl Visit for CollectEntries {
         fn pop_back_tracked_path_and_set_current(&mut self) {
-            self.path = self.path_deque.pop_back().unwrap_or_default();
+            let len = self.path_lengths.pop_back().unwrap_or_default();
+            self.path.truncate(len);
         }
 
         fn pop_front_tracked_path_and_set_current(&mut self) {
-            self.path = self
-                .path_deque
+            let len = self
+                .path_lengths
                 .pop_front()
                 .expect("every call is matched with push_tracked_path_component");
+            self.path.truncate(len);
         }
 
         fn push_back_tracked_path_component(&mut self, component: &BStr) {
             self.push_element(component);
-            self.path_deque.push_back(self.path.clone());
+            self.path_lengths.push_back(self.path.len());
         }
 
         fn push_path_component(&mut self, component: &BStr) {
@@ -195,11 +197,8 @@ pub mod from_tree {
         }
 
         fn pop_path_component(&mut self) {
-            if let Some(pos) = self.path.rfind_byte(b'/') {
-                self.path.resize(pos, 0);
-            } else {
-                self.path.clear();
-            }
+            let len = self.path.rfind_byte(b'/').unwrap_or_default();
+            self.path.truncate(len);
         }
 
         fn visit_tree(&mut self, _entry: &gix_object::tree::EntryRef<'_>) -> Action {
