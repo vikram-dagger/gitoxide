@@ -1,0 +1,69 @@
+name: CodSpeed
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  # `workflow_dispatch` allows CodSpeed to trigger backtest
+  # performance analysis in order to generate initial data.
+  workflow_dispatch:
+
+permissions: {}  # Expanded in the `benchmarks` job.
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  benchmarks:
+    name: Run benchmarks (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # For OpenID Connect authentication with CodSpeed.
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each crate with criterion benchmarks is benchmarked in its own shard to keep CI time low.
+        package:
+          - gix-attributes
+          - gix-config
+          - gix-diff
+          - gix-glob
+          - gix-index
+          - gix-merge
+          - gix-note
+          - gix-object
+          - gix-pack
+          - gix-utils
+          - gix-worktree
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: |
+          rustup update stable
+          rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: codspeed-${{ matrix.package }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        with:
+          tool: cargo-codspeed
+      - name: Build the benchmark targets
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: cargo codspeed build -m simulation -p "$PACKAGE"
+      - name: Run the benchmarks
+        uses: CodSpeedHQ/action@821a40cd6c80e3cfe387caf55668287addd808da # v5.5.0
+        env:
+          PACKAGE: ${{ matrix.package }}
+        with:
+          mode: simulation
+          run: cargo codspeed run -p "$PACKAGE"

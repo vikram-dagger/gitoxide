@@ -9,7 +9,7 @@
 //! and we use in-memory speeds for this.
 use std::{io, sync::atomic::AtomicBool};
 
-use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group};
+use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use gix_object::Write as _;
 use gix_pack::{
     data::output::{self, bytes::FromEntriesIter, count, entry},
@@ -21,6 +21,16 @@ use gix_utils::progress;
 /// Object counts to exercise. Kept modest so the benchmark stays runnable while still showing how
 /// the phases scale; raise locally to probe larger, more degenerate repositories.
 const OBJECT_COUNTS: &[usize] = &[1_000, 10_000, 50_000];
+
+/// The object counts to actually run. Under CodSpeed, the largest size is skipped as its instrumented
+/// run would dominate the CI time of the whole benchmark suite without adding much signal.
+fn object_counts() -> &'static [usize] {
+    if std::env::var_os("CODSPEED_ENV").is_some() {
+        &OBJECT_COUNTS[..OBJECT_COUNTS.len() - 1]
+    } else {
+        OBJECT_COUNTS
+    }
+}
 
 /// Create a fresh in-memory object database populated with `count` unique blobs.
 fn memory_odb(count: usize) -> (Memory, Vec<gix_hash::ObjectId>) {
@@ -100,7 +110,7 @@ fn write_pack(odb: &Memory, counts: Vec<output::Count>) -> u64 {
 
 fn bench_count(c: &mut Criterion) {
     let mut group = c.benchmark_group("count-in-memory-objects");
-    for &n in OBJECT_COUNTS {
+    for &n in object_counts() {
         let (odb, object_ids) = memory_odb(n);
         group.throughput(Throughput::Elements(n as u64));
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
@@ -112,7 +122,7 @@ fn bench_count(c: &mut Criterion) {
 
 fn bench_write(c: &mut Criterion) {
     let mut group = c.benchmark_group("write-pack");
-    for &n in OBJECT_COUNTS {
+    for &n in object_counts() {
         let (odb, object_ids) = memory_odb(n);
         let counts = count_objects_unthreaded(&odb, &object_ids);
         let pack_size = write_pack(&odb, counts.clone());
@@ -129,8 +139,4 @@ fn bench_write(c: &mut Criterion) {
 }
 
 criterion_group!(benches, bench_count, bench_write);
-
-fn main() {
-    benches();
-    Criterion::default().configure_from_args().final_summary();
-}
+criterion_main!(benches);
