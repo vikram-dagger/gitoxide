@@ -1,8 +1,4 @@
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, hash_map},
-    fmt::Formatter,
-};
+use std::{cmp::Ordering, collections::HashMap, fmt::Formatter};
 
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use gix_error::{Result, bail, validation};
@@ -378,17 +374,26 @@ impl Editor<'_> {
                 matches!(edit, EditMode::Remove(RemoveMode::LeafOnly | RemoveMode::IfLeaf))
                     && tree_to_lookup.is_some_and(|id| id.is_empty_tree());
             push_path_component(&mut path_buf, name);
-            cursor = match self.trees.entry(path_buf.clone()) {
-                hash_map::Entry::Occupied(e) => e.into_mut(),
-                hash_map::Entry::Vacant(_) if stop_at_unedited_empty_tree => break,
-                hash_map::Entry::Vacant(e) => e.insert(
-                    if let Some(tree_id) = tree_to_lookup.filter(|tree_id| !tree_id.is_empty_tree()) {
+            // Look the tree up by reference first so the path is only cloned into a new key when it's
+            // actually missing. Trees on most paths are already in memory, and cloning is wasteful there.
+            match self.trees.get_mut(path_buf.as_bstr()) {
+                Some(tree) => cursor = tree,
+                None => {
+                    if stop_at_unedited_empty_tree {
+                        break;
+                    }
+                    let tree = if let Some(tree_id) = tree_to_lookup.filter(|tree_id| !tree_id.is_empty_tree()) {
                         self.find.find_tree(&tree_id, &mut self.tree_buf)?.into()
                     } else {
                         Tree::default()
-                    },
-                ),
-            };
+                    };
+                    self.trees.insert(path_buf.clone(), tree);
+                    cursor = self
+                        .trees
+                        .get_mut(path_buf.as_bstr())
+                        .expect("we just inserted this tree");
+                }
+            }
         }
         drop(path_buf);
         Ok(self)
