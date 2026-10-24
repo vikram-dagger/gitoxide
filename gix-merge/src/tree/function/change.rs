@@ -103,6 +103,16 @@ pub(super) fn collect(
 ) -> Result<SideState> {
     let mut changes = Vec::new();
     if base_tree != side_tree {
+        // Reserve for the changes the diff is likely to emit so the callback below rarely
+        // has to grow the list. The serialized base tree is already available and its size
+        // yields a conservative count of top-level entries: a change at the root can at most
+        // consume one entry, while changes below nested trees aren't accounted for at all.
+        // Averaging the usual entry overhead (mode, delimiters and filename) with the hash
+        // keeps the estimate from overshooting for repositories with large trees.
+        const AVERAGE_ENTRY_LEN: usize = 6 /* mode */ + 2 /* space and trailing NUL */ + 24 /* filename */;
+        let average_entry_len = AVERAGE_ENTRY_LEN + base_tree.kind().len_in_bytes();
+        changes.reserve(base_buf.len() / average_entry_len);
+
         let side_tree = objects
             .find_tree_iter(side_tree, side_buf)
             .or_raise(|| message("Tree merge failed"))?;
