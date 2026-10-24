@@ -6,12 +6,12 @@
 //! Once such a case becomes a bug and is reproduced in testing, the debug-assertion will kick in and hopefully
 //! contribute to finding a fix faster.
 use gix_error::Result;
-use std::collections::HashMap;
 
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use gix_diff::tree_with_rewrites::{Change, ChangeRef};
 use gix_error::{OptionExt, ResultExt, message};
 use gix_hash::ObjectId;
+use gix_hashtable::hash_map::HashMap;
 use gix_object::{
     tree,
     tree::{EntryKind, EntryMode},
