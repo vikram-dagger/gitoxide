@@ -2143,6 +2143,7 @@ dependencies = [
  "gix-filter",
  "gix-fs",
  "gix-hash",
+ "gix-hashtable",
  "gix-imara-diff",
  "gix-index",
  "gix-merge",
